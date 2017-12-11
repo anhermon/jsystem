@@ -1,10 +1,10 @@
 package jsystem.extensions.report.difido;
 
-import il.co.topq.difido.model.execution.MachineNode;
-import il.co.topq.difido.model.remote.ExecutionDetails;
-import il.co.topq.difido.model.test.TestDetails;
-
 import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HttpClient;
@@ -16,8 +16,15 @@ import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.commons.httpclient.methods.multipart.FilePart;
 import org.apache.commons.httpclient.methods.multipart.MultipartRequestEntity;
 import org.apache.commons.httpclient.methods.multipart.Part;
+import org.jfree.util.Log;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import il.co.topq.difido.model.execution.MachineNode;
+import il.co.topq.difido.model.remote.ExecutionDetails;
+import il.co.topq.difido.model.test.TestDetails;
+import jsystem.framework.FrameworkOptions;
+import jsystem.framework.JSystemProperties;
 
 public class DifidoClient {
 
@@ -33,6 +40,7 @@ public class DifidoClient {
 	public int addExecution(ExecutionDetails details) throws Exception {
 		final PostMethod method = new PostMethod(baseUri + "executions/");
 		if (details != null) {
+			addMailDetails(details);
 			final String descriptionJson = new ObjectMapper().writeValueAsString(details);
 			method.setRequestEntity(new StringRequestEntity(descriptionJson,"application/json","utf-8"));
 		}
@@ -57,6 +65,44 @@ public class DifidoClient {
 		int responseCode = client.executeMethod(method);
 		handleResponseCode(method, responseCode);
 		return Integer.parseInt(method.getResponseBodyAsString());
+	}
+
+	private void addMailDetails(ExecutionDetails details) {
+		if (details == null) return;
+		addJsystemPropertyAsExcecutionProperty(details, FrameworkOptions.MAIL_SEND_TO);
+		String machineName = null;
+		try {
+			machineName = InetAddress.getLocalHost().getHostName();
+		} catch (UnknownHostException e) {
+			Log.error("Failed to get local machine name!");
+			e.printStackTrace();
+		};
+		addJsystemPropertyAsExcecutionProperty(details, FrameworkOptions.MAIL_FROM_ACCOUNT_NAME, machineName);
+		addJsystemPropertyAsExcecutionProperty(details, FrameworkOptions.MAIL_SUBJECT);
+	}
+
+	private void addJsystemPropertyAsExcecutionProperty(ExecutionDetails details, FrameworkOptions frameworkOption) {
+		addJsystemPropertyAsExcecutionProperty(details, frameworkOption);
+	}
+	private void addJsystemPropertyAsExcecutionProperty(ExecutionDetails details, FrameworkOptions frameworkOption, String defaultValue) {
+		String key = frameworkOption.getString();
+		JSystemProperties jsystemProperties = JSystemProperties.getInstance();
+		String value = jsystemProperties.getPreference(frameworkOption);
+		if (value == null)
+			value = defaultValue;
+		if (value == null) return;
+		Log.info(String.format("Adding Jsystem Property as scenario property: %s:%s", key, value));
+		addExecutionProperty(details, key, value);
+	}
+
+	private void addExecutionProperty(ExecutionDetails details, String key, String value) {
+		Map<String, String> executionProperties = details.getExecutionProperties();
+		if (executionProperties == null) {
+			details.setExecutionProperties(new HashMap<String, String>());
+		}
+		executionProperties = details.getExecutionProperties();
+		executionProperties.put(key, value);
+		details.setExecutionProperties(executionProperties);
 	}
 
 	public void updateMachine(int executionId, int machineId, MachineNode machine) throws Exception {
