@@ -82,7 +82,7 @@ public class DifidoClient {
 	}
 
 	private void addJsystemPropertyAsExcecutionProperty(ExecutionDetails details, FrameworkOptions frameworkOption) {
-		addJsystemPropertyAsExcecutionProperty(details, frameworkOption);
+		addJsystemPropertyAsExcecutionProperty(details, frameworkOption, null);
 	}
 	private void addJsystemPropertyAsExcecutionProperty(ExecutionDetails details, FrameworkOptions frameworkOption, String defaultValue) {
 		String key = frameworkOption.getString();
